@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TodoMobile</title>
+    <link rel="stylesheet" href="lib/jquery.mobile-1.0b2-oc1.css"/>
+
+    <script src="lib/jquery-1.6.2.js"></script>
+    <script src="lib/jquery.mobile-1.0b2-oc1.js"></script>
+    <script src="js/todo_jquery.js"></script>
+    <style>
+        .ui-input-text,
+        .ui-select {
+            width: 100% !important;
+            padding: 0.4em 0 !important;
+        }
+    </style>
+</head>
+<body>
+<div id="main" data-role="page">
+    <div data-role="header">
+        <h1>Todos</h1>
+        <a href="" id="saveTodos" data-role="button">Save</a>
+        <a href="#settings" data-role="button">Settings</a>
+    </div>
+
+    <div data-role="content">
+        <div data-role="fieldcontain">
+            <form id="addTodo" data-ajax="false">
+                <input type="text" id="inputText" placeholder="enter your todo here">
+            </form>
+        </div>
+        <fieldset data-role="controlgroup" id="todos">
+        </fieldset>
+    </div>
+</div>
+
+<div id="settings" data-role="page">
+    <div data-role="header">
+        <h1>Settings</h1>
+        <a href="" id="saveSettings" data-role="button" data-rel="back">Save</a>
+    </div>
+
+    <div data-role="content">
+        <div data-role="fieldcontain">
+            <input type="text" id="storage" placeholder="enter your storage key here" style="width: 100%;">
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
