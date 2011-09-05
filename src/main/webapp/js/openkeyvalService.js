@@ -1,34 +1,24 @@
-angular.service('$openkeyval', function($updateView, waitdialog) {
+angular.service('todoStore', function(jsonp, waitdialog) {
     var readUrl = 'https://secure.openkeyval.org/';
     var writeUrl = 'https://secure.openkeyval.org/store/?';
 
-    function jsonp(url, success) {
-        waitdialog.show();
-        $.ajax({
-            url: url,
-            dataType: "jsonp",
-            success: success
-        });
-    }
-
     function read(key, success) {
+        waitdialog.show();
         jsonp(
             readUrl + key,
             function(data) {
                 data = JSON.parse(data);
                 success(data);
-                afterJsonp();
+                waitdialog.hide();
             });
     }
 
     function write(key, value) {
+        waitdialog.show();
         value = encodeURIComponent(JSON.stringify(value));
-        jsonp(writeUrl + key + '=' + value, afterJsonp);
-    }
-
-    function afterJsonp() {
-        waitdialog.hide();
-        $updateView();
+        jsonp(writeUrl + key + '=' + value, function() {
+            waitdialog.hide();
+        });
     }
 
     return {
@@ -36,4 +26,4 @@ angular.service('$openkeyval', function($updateView, waitdialog) {
         write: write
     }
 
-});
+}, {$inject: ['jsonp', 'waitdialog']});

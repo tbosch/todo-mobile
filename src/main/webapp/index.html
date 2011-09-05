@@ -6,11 +6,20 @@
     <link rel="stylesheet" href="lib/jquery.mobile-1.0b2-oc1.css"/>
 
     <script src="lib/jquery-1.6.2.js"></script>
+    <script>
+        // Init settings for jquery mobile
+        $(document).bind("mobileinit", function(){
+            $.mobile.defaultListPageSize = 5;
+        });
+
+    </script>
     <script src="lib/jquery.mobile-1.0b2-oc1.js"></script>
     <script src="lib/angular-0.9.19.js"></script>
     <script src="lib/jquery-mobile-angular-adapter.js"></script>
     <script src="js/todo.js"></script>
+    <script src="js/jsonp.js"></script>
     <script src="js/openkeyvalService.js"></script>
+
 
     <style>
         .ui-input-text,
@@ -21,7 +30,7 @@
     </style>
 </head>
 <body>
-<div id="main" data-role="page" ng:controller="TodoController">
+<div id="main" data-role="page" ng:controller="TodoController" ng:event="swipeleft:showSettings()">
     <div data-role="header">
         <h1>Todos</h1>
         <a href="" id="saveTodos" data-role="button" ngm:click="saveTodos()">Save</a>
@@ -35,15 +44,18 @@
             </form>
         </div>
         <fieldset data-role="controlgroup">
-            <div ng:repeat="todo in todos">
+            <div ng:repeat="todo in todos.$paged()">
                 <input type="checkbox" name="todo.done" id="todo{{$index}}"/>
                 <label for="todo{{$index}}">{{todo.name}}</label>
+            </div>
+            <div ng:if="todos.$paged().hasMorePages()">
+                <a href="#" ngm:click="todos.$paged().loadNextPage()" data-role="button">Load more</a>
             </div>
         </fieldset>
     </div>
 </div>
 
-<div id="settings" data-role="page" ng:controller="SettingsController">
+<div id="settings" data-role="page" ng:controller="SettingsController" ng:event="swiperight:back()">
     <div data-role="header">
         <h1>Settings</h1>
         <a href="" id="saveSettings" data-role="button" data-rel="back">Save</a>
