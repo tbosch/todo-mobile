@@ -6,6 +6,12 @@ Description
 
 Mobile Todo application, that uses Open Key Value Store as backend, see [http://openkeyval.org/](http://openkeyval.org/).
 
+There is also a plain jquery implementation, to see the benefit of using angular.
+See index_jquery.html.
+
+The main application is launched via index.html.
+
+
 Technologies
 ------------
 
