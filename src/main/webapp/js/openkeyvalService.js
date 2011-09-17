@@ -4,10 +4,9 @@ angular.service('todoStore', function(jsonp, waitdialog) {
 
     function read(key, success) {
         waitdialog.show();
-        jsonp(
-            readUrl + key,
-            function(data) {
-                data = JSON.parse(data);
+        jsonp('JSON',
+            readUrl + key+'?callback=JSON_CALLBACK',
+            function(status, data) {
                 success(data);
                 waitdialog.hide();
             });
@@ -16,7 +15,8 @@ angular.service('todoStore', function(jsonp, waitdialog) {
     function write(key, value) {
         waitdialog.show();
         value = encodeURIComponent(JSON.stringify(value));
-        jsonp(writeUrl + key + '=' + value, function() {
+        jsonp('JSON', writeUrl + key + '=' + value+'&callback=JSON_CALLBACK', 
+              function() {
             waitdialog.hide();
         });
     }
@@ -26,4 +26,4 @@ angular.service('todoStore', function(jsonp, waitdialog) {
         write: write
     }
 
-}, {$inject: ['jsonp', 'waitdialog']});
+}, {$inject: ['$xhr', 'waitdialog']});
