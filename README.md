@@ -6,20 +6,12 @@ Description
 
 Mobile Todo application, that uses Open Key Value Store as backend, see [http://openkeyval.org/](http://openkeyval.org/).
 
-There is also a plain jquery implementation, to see the benefit of using angular.
-See index_jquery.html.
+There are the following implementations:
+- plain jquery (just to show the ugliness of manual data binding)
+- desktop version with angular
+- mobile version with angular and jquery mobile
+- mobile version with angular and sencha touch
 
-The main application is launched via index.html.
-
-
-Technologies
-------------
-
-- jquery-mobile: Mobile Widgets
-- angular: Databinding
-- jasmine: Unit-Tests
-- jasmine-ui: Ui-Tests
-- js-test-driver: Automating Tests
 
 Build process
 -------------

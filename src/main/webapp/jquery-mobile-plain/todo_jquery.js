@@ -1,6 +1,8 @@
-$('#addTodo').submit(function(event) {
-    addTodo();
-    event.preventDefault();
+$(function() {
+    $('#addTodo').submit(function(event) {
+        addTodo();
+        event.preventDefault();
+    });
 });
 
 function addTodo() {
@@ -20,6 +22,3 @@ function entryTemplate(index, name) {
         '<label for="todo' + index + '">' + name + '</label>';
 }
 
-$(function() {
-    TodoController();
-});

@@ -1,72 +1,41 @@
-<!DOCTYPE html>
-<html xmlns:ng="http://angularjs.org" xmlns:ngm="http://jqm-angularjs.org">
+<html>
 <head>
-    <meta name="viewport" content="width=device-width; initial-scale=1.0; maximum-scale=1.0; user-scalable=0;"/>
-    <title>TodoMobile</title>
-    <link rel="stylesheet" href="lib/jquery.mobile-1.0b2-oc1.css"/>
-
-    <script src="lib/jquery-1.6.2.js"></script>
-    <script>
-        // Init settings for jquery mobile
-        $(document).bind("mobileinit", function(){
-            $.mobile.defaultListPageSize = 5;
-        });
-
-    </script>
-    <script src="lib/jquery.mobile-1.0b2-oc1.js"></script>
-    <script src="lib/angular-0.9.19.js"></script>
-    <script src="lib/jquery-mobile-angular-adapter.js"></script>
-    <script src="js/todo.js"></script>
-    <script src="js/openkeyvalService.js"></script>
-
-
+    <title>Todo-App</title>
     <style>
-        .ui-input-text,
-        .ui-select {
-            width: 100% !important;
-            padding: 0.4em 0 !important;
+        body {
+            font-family: Arial, Verdana;
+            font-size: 15px;
         }
+
+
     </style>
 </head>
 <body>
-<div id="main" data-role="page" ng:controller="TodoController" ng:event="swipeleft:showSettings()">
-    <div data-role="header">
-        <h1>Todos</h1>
-        <a href="" id="saveTodos" data-role="button" ngm:click="saveTodos()">Save</a>
-        <a href="#settings" data-role="button">Settings</a>
-    </div>
+<h1>Todo-App</h1>
 
-    <div data-role="content">
-        <div data-role="fieldcontain">
-            <form ng:submit="addTodo()" data-ajax="false">
-                <input type="text" id="inputText" name="inputText" placeholder="enter your todo here">
-            </form>
-        </div>
-        <fieldset data-role="controlgroup">
-            <div ng:repeat="todo in todos.$paged()">
-                <input type="checkbox" name="todo.done" id="todo{{$index}}"/>
-                <label for="todo{{$index}}">{{todo.name}}</label>
-            </div>
-            <div ng:if="todos.$paged().hasMorePages()">
-                <a href="#" ngm:click="todos.$paged().loadNextPage()" data-role="button">Load more</a>
-            </div>
-        </fieldset>
-    </div>
-</div>
+This site provides a simple todo application in the following technologies:
 
-<div id="settings" data-role="page" ng:controller="SettingsController" ng:event="swiperight:back()">
-    <div data-role="header">
-        <h1>Settings</h1>
-        <a href="" id="saveSettings" data-role="button" data-rel="back">Save</a>
-    </div>
+<ul>
+    <li>Plain jQuery Mobile without databinding: <a href="jquery-mobile-plain/index.html">Here</a></li>
+    <li>Desktop version with angularJS databinding: <a href="desktop-angular/index.html">Here</a></li>
+    <li>jQuery Mobile version with angularJS databinding: <a href="jquery-mobile-angular/index.html">Here</a>
+    </li>
+    <li>Sencha Touch version with angularJS databinding: <a href="sencha-touch-angular/index.html">Here</a></li>
+</ul>
 
-    <div data-role="content">
-        <div data-role="fieldcontain">
-            <input type="text" id="storageKey" name="storageKey" placeholder="enter your storage key here">
-        </div>
-    </div>
-</div>
+All angular versions share a common javascript controller.
+For the backend, we use the Open Key Value Store, see <a href="http://openkeyval.org/">http://openkeyval.org/</a>
+
+<p>
+    For the adapter between anglar and jquery mobile see here:
+    <a href="http://github.com/tigbro/jquery-mobile-angular-adapter">http://github.com/tigbro/jquery-mobile-angular-adapter</a>
+</p>
+
+<p>
+    For the adapter between anglar and sencha touch see here:
+    <a href="http://github.com/tigbro/sencha-touch-angular-adapter">http://github.com/tigbro/sencha-touch-angular-adapter</a>
+</p>
+
 
 </body>
 </html>
-

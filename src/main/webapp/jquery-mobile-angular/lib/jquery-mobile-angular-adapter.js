@@ -24,7 +24,7 @@
 (function() {
 
 // Placeholder for the build process
-
+;
 /**
  * Simple implementation of require/define assuming all
  * modules are named, in one file and in the correct order.
@@ -84,13 +84,13 @@ var requirejs, require, define;
 /**
  * Wrapper around window.angular.
  */
-define('angular', function() {
+define('angular',[], function() {
     if (typeof angular !== "undefined") {
         return angular;
     }
 });
 
-define('jquery', function() {
+define('jquery',[], function() {
     if (typeof $ !== "undefined") {
         return $;
     }
@@ -137,67 +137,128 @@ define('jqmng/globalScope',['jquery', 'angular'], function($, angular) {
         onCreateListeners.push(listener);
     }
 
+    $.mobile.globalScope = getGlobalScope;
+
     return {
         globalScope: getGlobalScope,
         onCreate: onCreate
     }
 });
 
-define('jqmng/activePage',['jquery', 'jqmng/globalScope'], function($, globalScope) {
+define('jqmng/navigate',['jquery', 'angular'], function($, angular) {
+    function splitAtFirstColon(value) {
+        var pos = value.indexOf(':');
+        if (pos===-1) {
+            return [value];
+        }
+        return [
+            value.substring(0, pos),
+            value.substring(pos+1)
+        ];
+    }
+
     /*
      * Service for page navigation.
-     * A call without parameters returns the current page id.
-     * Parameters (see $.mobile.changePage)
-     * - pageId: Id of page to navigate to. The special page id "back" navigates back.
-     * - transition (optional): Transition to be used.
-     * - reverse (optional): If the transition should be executed in reverse style
+     * target has the syntax: [<transition>:]pageId
      */
-    function activePage() {
-        if (arguments.length == 0) {
-            var currPage = $.mobile.activePage;
-            if (currPage) {
-                return currPage.attr('id');
+    function navigate(target) {
+        var parts = splitAtFirstColon(target);
+        var animation, pageId;
+        if (parts.length === 2 && parts[0] === 'back') {
+            var pageId = parts[1];
+            var relativeIndex = getIndexInStack(pageId);
+            if (relativeIndex === undefined) {
+                pageId = jqmChangePage(pageId, undefined);
             } else {
-                return null;
+                window.history.go(relativeIndex);
             }
+            return;
+        } else if (parts.length === 2) {
+            animation = parts[0];
+            pageId = parts[1];
         } else {
-            // set the page...
-            var pageId = arguments[0];
-            if (pageId == 'back') {
-                window.history.back();
-            } else {
-                $.mobile.changePage.apply($.mobile.changePage, arguments);
+            pageId = parts[0];
+            animation = undefined;
+        }
+        if (pageId === 'back') {
+            window.history.go(-1);
+        } else {
+            jqmChangePage(pageId, animation);
+        }
+    }
+
+    function jqmChangePage(pageId, animation) {
+        if (pageId.charAt(0) !== '#') {
+            pageId = '#' + pageId;
+        }
+        $.mobile.changePage.call($.mobile, pageId, animation);
+        return pageId;
+    }
+
+
+    angular.service('$navigate', function() {
+        return navigate;
+    });
+
+    function getIndexInStack(pageId) {
+        var stack = $.mobile.urlHistory.stack;
+        var res = 0;
+        var pageUrl;
+        for (var i = stack.length - 2; i >= 0; i--) {
+            pageUrl = stack[i].pageUrl;
+            if (pageUrl === pageId) {
+                return i - stack.length + 1;
             }
         }
+        return undefined;
     }
 
-    $('div').live('pagebeforehide', function(event, ui) {
-        var currPageScope = $(event.target).scope();
-        if (!currPageScope) {
+    /**
+     * Helper function to put the navigation part out of the controller into the page.
+     * @param scope
+     */
+    angular.Object.navigate = function(scope) {
+        var service = scope.$service("$navigate");
+        if (arguments.length === 2) {
+            // used without the test.
+            service(arguments[1]);
             return;
         }
-        var nextPage = ui.nextPage;
-        var nextPageScope = nextPage && nextPage.scope();
-        if (currPageScope.onPassivate) {
-            currPageScope.onPassivate.call(currPageScope, nextPageScope);
+        // parse the arguments...
+        var test = arguments[1];
+        var outcomes = {};
+        var parts;
+        for (var i = 2; i < arguments.length; i++) {
+            parts = splitAtFirstColon(arguments[i]);
+            outcomes[parts[0]] = parts[1];
         }
-    });
+        if (test && test.then) {
+            // test is a promise.
+            test.then(function(test) {
+                if (outcomes[test]) {
+                    service(outcomes[test]);
+                } else if (outcomes.success) {
+                    service(outcomes.success);
+                }
+            }, function(test) {
+                if (outcomes[test]) {
+                    service(outcomes[test]);
+                } else if (outcomes.failure) {
+                    service(outcomes.failure);
+                }
+            });
+        } else {
+            if (outcomes[test]) {
+                service(outcomes[test]);
+            } else if (test !== false && outcomes.success) {
+                service(outcomes.success);
+            } else if (test === false && outcomes.failure) {
+                service(outcomes.failure);
+            }
+        }
+    };
 
-    $('div').live('pagebeforeshow', function(event, ui) {
-        var currPageScope = $(event.target).scope();
-        if (!currPageScope) {
-            return;
-        }
-        var prevPage = ui.prevPage;
-        var prevPageScope = prevPage && prevPage.scope();
-        if (currPageScope.onActivate) {
-            currPageScope.onActivate.call(currPageScope, prevPageScope);
-        }
-    });
-
-    return {
-        activePage: activePage
-    }
+    return navigate;
 
 });
 
@@ -245,8 +306,7 @@ define('jqmng/waitDialog',['jquery'], function($) {
 
     /**
      * jquery mobile hides the wait dialog when pages are transitioned.
-     * This immediately closes wait dialogs that are opened in the onActivate
-     * function of controllers.
+     * This immediately closes wait dialogs that are opened in the pagebeforeshow event.
      */
     $('div').live('pageshow', function(event, ui) {
         updateUi();
@@ -311,12 +371,18 @@ define('jqmng/waitDialog',['jquery'], function($) {
         });
     }
 
-    return {
+    var res = {
         show: show,
         hide: hide,
         waitFor: waitFor,
         waitForWithCancel:waitForWithCancel
     };
+
+    angular.service('$waitDialog', function() {
+        return res;
+    });
+
+    return res;
 });
 
 define('jqmng/event',['angular'], function(angular) {
@@ -325,25 +391,14 @@ define('jqmng/event',['angular'], function(angular) {
      * includes taps, mousedowns, ...
      */
     angular.directive("ngm:click", function(expression, element) {
-        return angular.directive('ng:event')('vclick:' + expression, element);
+        return angular.directive('ngm:event')('{vclick:"' + expression+'"}', element);
     });
 
-    /* A widget to bind general events like touches, ....
+    /**
+     * A widget to bind general events like touches, ....
      */
-    angular.directive("ng:event", function(expression, element) {
-        var eventHandlers = {};
-        var pattern = /(.*?):(.*?)($|,)/g;
-        var match;
-        var hasData = false;
-        while (match = pattern.exec(expression)) {
-            hasData = true;
-            var event = match[1];
-            var handler = match[2];
-            eventHandlers[event] = handler;
-        }
-        if (!hasData) {
-            throw "Expression " + expression + " needs to have the syntax <event>:<handler>,...";
-        }
+    angular.directive("ngm:event", function(expression, element) {
+        var eventHandlers = angular.fromJson(expression);
 
         var linkFn = function($updateView, element) {
             var self = this;
@@ -366,34 +421,14 @@ define('jqmng/event',['angular'], function(angular) {
         linkFn.$inject = ['$updateView'];
         return linkFn;
     });
-
-    /* A widget that reacts when the user presses the enter key.
-     */
-    angular.directive("ng:enterkey", function(expression, element) {
-        var linkFn = function($updateView, element) {
-            var self = this;
-            element.bind('keypress', function(e) {
-                var key = e.keyCode || e.which;
-                if (key == 13) {
-                    var res = self.$tryEval(expression, element);
-                    $updateView();
-                }
-            });
-        };
-        linkFn.$inject = ['$updateView'];
-        return linkFn;
-    });
 });
 
-/*
- * The ng:fadein directive
- */
 define('jqmng/fadein',['angular'], function(angular) {
     /*
      * Directive that fades in an element when angular
      * uses it. Useful in templating when the underlying template changed.
      */
-    angular.directive("ng:fadein", function(expression, element) {
+    angular.directive("ngm:fadein", function(expression, element) {
         this.directives(true);
         this.descend(true);
         element.css({opacity:0.1});
@@ -418,9 +453,9 @@ define('jqmng/if',['angular'], function(angular) {
         }
     }
 
-    angular.widget('@ng:if', function(expression, element) {
-        var newExpr = 'ngif in $iff(' + expression + ",[1],[])";
-        element.removeAttr('ng:if');
+    angular.widget('@ngm:if', function(expression, element) {
+        var newExpr = 'ngmif in $iff(' + expression + ",[1],[])";
+        element.removeAttr('ngm:if');
         return angular.widget('@ng:repeat').call(this, newExpr, element);
     });
 });
@@ -436,7 +471,7 @@ define('jqmng/if',['angular'], function(angular) {
  *
  * Usage:
  <li ng:repeat="l in list.$paged()">{{l}}</li>
- <li ng:if="list.$paged().hasMorePages()">
+ <li ngm:if="list.$paged().hasMorePages()">
  <a href="#" ngm:click="list.$paged().loadNextPage()">Load more</a>
  </li>
  */
@@ -591,6 +626,56 @@ define('jqmng/paging',['jquery', 'angular', 'jqmng/globalScope'], function($, an
     };
 });
 
+define('jqmng/sharedController',['angular'], function(angular) {
+    function findCtrlFunction(name) {
+        var parts = name.split('.');
+        var base = window;
+        var part;
+        for (var i = 0; i < parts.length; i++) {
+            part = parts[i];
+            base = base[part];
+        }
+        return base;
+    }
+
+    function sharedCtrl(rootScope, name) {
+        var ctrl = findCtrlFunction(name);
+        var instance = rootScope[name];
+        if (!instance) {
+            instance = rootScope.$new(ctrl);
+            rootScope[name] = instance;
+        }
+        return instance;
+    }
+
+    function parseSharedControllersExpression(expression) {
+        var pattern = /(.*?):(.*?)($|,)/g;
+        var match;
+        var hasData = false;
+        var controllers = {}
+        while (match = pattern.exec(expression)) {
+            hasData = true;
+            controllers[match[1]] = match[2];
+        }
+        if (!hasData) {
+            throw "Expression " + expression + " needs to have the syntax <name>:<controller>,...";
+        }
+        return controllers;
+    }
+
+    angular.directive('ngm:shared-controller', function(expression) {
+        this.scope(true);
+        var controllers = parseSharedControllersExpression(expression);
+        return function(element) {
+            var scope = this;
+            for (var name in controllers) {
+                scope[name] = sharedCtrl(scope.$root, controllers[name]);
+            }
+        }
+
+    });
+});
+
 /**
  * Integration of the page widget.
  */
@@ -599,33 +684,42 @@ define('jqmng/widgets/pageCompile',['jquery', 'angular', 'jqmng/globalScope'], f
     // so we can intercept them.
     $.mobile.page.prototype.widgetEventPrefix = 'jqmngpage';
 
-    var afterCompileQueue = [];
+    /**
+     * This is a copy of the degrade inputs plugin of jquery
+     * mobile. We need it here to execute this replacement
+     * at the right time, i.e. before we do the page compile with
+     * angular.
+     * @param targetPage
+     */
+    function degradeInputs(targetPage) {
+        var page = targetPage.data( "page" ),
+            o = page.options;
 
-    function executeAfterCompileQueue() {
-        while (afterCompileQueue.length>0) {
-            var callback = afterCompileQueue.shift();
-            callback();
-        }
-    }
+        // degrade inputs to avoid poorly implemented native functionality
+        targetPage.find( "input" ).not( o.keepNative ).each(function() {
+            var $this = $( this ),
+                type = this.getAttribute( "type" ),
+                optType = o.degradeInputs[ type ] || "text";
 
-    function addAfterCompileCallback(callback) {
-        if (afterCompileQueue.length==0) {
-            setTimeout(executeAfterCompileQueue, 0);
-        }
-        afterCompileQueue.push(callback);
+            if ( o.degradeInputs[ type ] ) {
+                $this.replaceWith(
+                    $( "<div>" ).html( $this.clone() ).html()
+                        .replace( /\s+type=["']?\w+['"]?/, " type=\"" + optType + "\" data-" + $.mobile.ns + "type=\"" + type + "\" " )
+                );
+            }
+        });
     }
 
     $('div').live('jqmngpagecreate', function(event) {
         var page = $(event.target);
         var parentScope = globalScope.globalScope();
         var childScope = angular.scope(parentScope);
+        degradeInputs(page);
         angular.compile(page)(childScope);
-        addAfterCompileCallback(function() {
-            // The second pagecreate does only initialize
-            // the widgets that we did not already create by angular.
-            page.trigger("pagecreate");
-        });
-        executeAfterCompileQueue();
+        parentScope.$eval();
+        // The second pagecreate does only initialize
+        // the widgets that we did not already create by angular.
+        page.trigger("pagecreate");
     });
 
     $('div').live('jqmngpagebeforeshow', function(event, data) {
@@ -651,6 +745,13 @@ define('jqmng/widgets/pageCompile',['jquery', 'angular', 'jqmng/globalScope'], f
     $('div').live('jqmngpageshow', function(event, data) {
         var page = $(event.target);
         page.trigger("pageshow", data);
+    });
+
+    /**
+     * Create jquery elements when elements were added to the dom.
+     */
+    $(document).bind('elementsAdded', function(event) {
+        $(event.target).trigger('create');
     });
 
     var currScope = null;
@@ -692,10 +793,6 @@ define('jqmng/widgets/pageCompile',['jquery', 'angular', 'jqmng/globalScope'], f
             return res;
         }, {$inject:['$log']});
     })(angular);
-
-    return {
-        afterCompile: addAfterCompileCallback
-    }
 });
 
 /**
@@ -769,86 +866,216 @@ define('jqmng/widgets/widgetProxyUtil',['jquery', 'angular', 'jqmng/globalScope'
         });
     }
 
+    return {
+        createAngularDirectiveProxy: createAngularDirectiveProxy,
+        createAngularWidgetProxy: createAngularWidgetProxy
+    }
+});
+
+define('jqmng/widgets/angularRepeat',['jqmng/widgets/widgetProxyUtil'], function(proxyUtil) {
     /**
-     * Removes all elements from list1 that are contained in list2
-     * and returns a new list.
-     * @param list1
-     * @param list2
+     * Modify original ng:repeat so that all created items directly have a parent
+     * (old style repeat). This is slower, however simplifies the integration with jquery mobile a lot!
+     * <p>
+     * This will furthermore create the events "elementsAdded" and "elementsRemoved" if
+     * elements were added or deleted (only once per eval).
+     * <p>
+     * This also takes care for jquery widgets wrapping themselves into other elements
+     * (e.g. setting a div as new parent).
      */
-    function minusArray(list1, list2) {
-        var res = [];
-        // temporarily add marker...
-        for (var i=0; i<list2.length; i++) {
-            list2[i].diffMarker = true;
-        }
-        for (var i=0; i<list1.length; i++) {
-            if (!list1[i].diffMarker) {
-                res.push(list1[i]);
+    angular.widget('@ng:repeat', function(expression, element) {
+        element.removeAttr('ng:repeat');
+        element.replaceWith(angular.element('<!-- ng:repeat: ' + expression + ' -->'));
+        var linker = this.compile(element);
+        return function(iterStartElement) {
+            var match = expression.match(/^\s*(.+)\s+in\s+(.*)\s*$/),
+                lhs, rhs, valueIdent, keyIdent;
+            if (! match) {
+                throw Error("Expected ng:repeat in form of '_item_ in _collection_' but got '" +
+                    expression + "'.");
             }
-        }
-        for (var i=0; i<list2.length; i++) {
-            delete list2[i].diffMarker;
-        }
-        return res;
-    }
-
-    function recordDomAdditions(selector, callback) {
-        var oldState = $(selector);
-        callback();
-        var newState = $(selector);
-        return minusArray(newState, oldState);
-    }
-
-    var garbageCollector = [];
-
-    function isConnectedToDocument(element) {
-        var rootElement = document.documentElement;
-        while (element!==null && element!==rootElement) {
-            element = element.parentNode;
-        }
-        return element===rootElement;
-    }
-
-    function removeSlaveElements() {
-        var rootElement = document.documentElement;
-        for (var i=0; i<garbageCollector.length; i++) {
-            var entry = garbageCollector[i];
-            if (!isConnectedToDocument(entry.master[0])) {
-                entry.slaves.remove();
-                garbageCollector.splice(i, 1);
-                i--;
+            lhs = match[1];
+            rhs = match[2];
+            match = lhs.match(/^([\$\w]+)|\(([\$\w]+)\s*,\s*([\$\w]+)\)$/);
+            if (!match) {
+                throw Error("'item' in 'item in collection' should be identifier or (key, value) but got '" +
+                    rhs + "'.");
             }
-        }
-    }
+            valueIdent = match[3] || match[1];
+            keyIdent = match[2];
+            var children = [], currentScope = this;
+            var parent = iterStartElement.parent();
+            this.$onEval(function() {
+                var index = 0,
+                    childCount = children.length,
+                    lastIterElement = iterStartElement,
+                    collection = this.$tryEval(rhs, iterStartElement),
+                    collectionLength = angular.Array.size(collection, true),
+                    childScope,
+                    key;
+                var addedElements = [];
+                var removedElements = [];
 
-    function removeSlavesWhenMasterIsRemoved(master, slaves) {
-        garbageCollector.push({master: master, slaves:slaves});
-    }
+                for (key in collection) {
+                    if (collection.hasOwnProperty(key)) {
+                        if (index < childCount) {
+                            // reuse existing child
+                            childScope = children[index];
+                            childScope[valueIdent] = collection[key];
+                            if (keyIdent) childScope[keyIdent] = key;
+                            lastIterElement = childScope.$element;
+                            childScope.$position = index == 0
+                                ? 'first'
+                                : (index == collectionLength - 1 ? 'last' : 'middle');
+                            childScope.$eval();
+                        } else {
+                            // grow children
+                            childScope = angular.scope(currentScope);
+                            childScope[valueIdent] = collection[key];
+                            if (keyIdent) childScope[keyIdent] = key;
+                            childScope.$index = index;
+                            childScope.$position = index == 0
+                                ? 'first'
+                                : (index == collectionLength - 1 ? 'last' : 'middle');
+                            children.push(childScope);
+                            linker(childScope, function(clone) {
+                                clone.attr('ng:repeat-index', index);
 
-    globalScope.onCreate(function(scope) {
-        scope.$onEval(99999, function() {
-            removeSlaveElements();
-        });
+                                // Always use old way for jquery mobile, so
+                                // that new elements instantly have a connection to the document root.
+                                // Some jquery mobile widgets add new parents.
+                                // Compensate this for adding.
+                                var appendPosition = lastIterElement;
+                                while (appendPosition.length>0 && appendPosition.parent()[0]!==parent[0]) {
+                                    appendPosition = appendPosition.parent();
+                                }
+                                appendPosition.after(clone);
+                                lastIterElement = clone;
+                            });
+                            addedElements.push(lastIterElement);
+                        }
+                        index ++;
+                    }
+                }
+
+                // shrink children
+                while (children.length > index) {
+                    // Sencha Integration: Destroy widgets
+                    var child = children.pop();
+                    var childElement = child.$element;
+                    removedElements.push(childElement);
+                    childElement.remove();
+                }
+
+                if (addedElements.length>0) {
+                    parent.trigger('elementsAdded', addedElements);
+                } else if (removedElements.length>0) {
+                    parent.trigger('elementsRemoved', removedElements);
+                }
+            }, iterStartElement);
+        };
     });
 
 
-    return {
-        recordDomAdditions: recordDomAdditions,
-        createAngularDirectiveProxy: createAngularDirectiveProxy,
-        createAngularWidgetProxy: createAngularWidgetProxy,
-        removeSlavesWhenMasterIsRemoved: removeSlavesWhenMasterIsRemoved
-    }
+});
+
+define('jqmng/widgets/angularInput',[
+    'jquery', 'jqmng/widgets/widgetProxyUtil'
+],
+    function($, proxyUtil) {
+        function isCheckboxRadio(element) {
+            return element.filter($.mobile.checkboxradio.prototype.options.initSelector)
+                .not(":jqmData(role='none'), :jqmData(role='nojs')").length > 0;
+
+        }
+        function isTextInput(element) {
+            return element.filter($.mobile.textinput.prototype.options.initSelector)
+                .not(":jqmData(role='none'), :jqmData(role='nojs')").length > 0;
+        }
+
+        proxyUtil.createAngularWidgetProxy('input', function(element) {
+            var textinput = isTextInput(element);
+            var checkboxRadio = isCheckboxRadio(element);
+
+            var name = element.attr('name');
+            var oldType = element[0].type;
+            // Need to set the type temporarily always to 'text' so that
+            // the original angular widget is used.
+            if (textinput) {
+                element[0].type = 'text';
+                element[0]['data-type'] = oldType;
+            }
+            return function(element, origBinder) {
+                var scope = this;
+                element[0].type = oldType;
+                if (checkboxRadio) {
+                    // Angular binds to the click event for radio and check boxes,
+                    // but jquery mobile fires a change event. So be sure that angular only listens to the change event,
+                    // and no more to the click event, as the click event is too early / jqm has not updated
+                    // the checked status.
+                    var origBind = element.bind;
+                    element.bind = function(events, callback) {
+                        if (events.indexOf('click') != -1) {
+                            events = "change";
+                        }
+                        return origBind.call(this, events, callback);
+                    };
+                }
+                var res = origBinder();
+                // Watch the name and refresh the widget if needed
+                if (name) {
+                    scope.$watch(name, function(value) {
+                        var data = element.data();
+                        for (var key in data) {
+                            var widget = data[key];
+                            if (widget.refresh) {
+                                element[key]("refresh");
+                            }
+                        }
+                    });
+                }
+                return res;
+            };
+        });
+
+    });
+
+define('jqmng/widgets/angularSelect',[
+    'jqmng/widgets/widgetProxyUtil'
+], function(proxyUtil) {
+    proxyUtil.createAngularWidgetProxy('select', function(element) {
+        var name = element.attr('name');
+        return function(element, origBinder) {
+            var scope = this;
+            var res = origBinder();
+            var oldVal;
+            if (name) {
+                // Note: We cannot use $watch here, as ng:options uses $onEval to change the options,
+                // and that gets executed after the $watch.
+                scope.$onEval(function() {
+                    var newVal = scope.$eval(name);
+                    if (newVal!==oldVal) {
+                        oldVal = newVal;
+                        var data = element.data();
+                        for (var key in data) {
+                            var widget = data[key];
+                            if (widget.refresh) {
+                                element[key]("refresh");
+                            }
+                        }
+                    }
+                });
+            }
+
+            return res;
+        }
+    });
+
 });
 
 define('jqmng/widgets/disabledHandling',[
     'jqmng/widgets/widgetProxyUtil'
 ], function(widgetProxyUtil) {
-    /**
-     * Binds the enabled/disabled handler of angular and jquery mobile together,
-     * for the jqm widgets that are in jqmWidgetDisabledHandling.
-     */
-    var jqmWidgetDisabledHandling = {};
-
     widgetProxyUtil.createAngularDirectiveProxy('ng:bind-attr', function(expression) {
         var regex = /([^:{'"]+)/;
         var attr = regex.exec(expression)[1];
@@ -870,7 +1097,8 @@ define('jqmng/widgets/disabledHandling',[
                         var jqmOperation = value?"disable":"enable";
                         var data = element.data();
                         for (var key in data) {
-                            if (typeof key === 'string' && jqmWidgetDisabledHandling[key]) {
+                            var widget = data[key];
+                            if (widget[jqmOperation]) {
                                 element[key](jqmOperation);
                             }
                         }
@@ -879,374 +1107,123 @@ define('jqmng/widgets/disabledHandling',[
             }
         }
     });
-
-    return jqmWidgetDisabledHandling;
 });
 
 define('jqmng/widgets/jqmButton',[
-    'jqmng/widgets/widgetProxyUtil',
-    'jqmng/widgets/disabledHandling'
-], function(proxyUtil, disabledHandling) {
-    disabledHandling.button = true;
-
-    function compileButton(element, name) {
-        var scope = this;
-        element.button();
-        // the input button widget creates a new parent element.
-        // remove that element when the input element is removed
-        proxyUtil.removeSlavesWhenMasterIsRemoved(element, element.parent());
-    }
-
-    function isButton(element) {
-        return element.filter($.mobile.button.prototype.options.initSelector)
-            .not(":jqmData(role='none'), :jqmData(role='nojs')").length > 0;
-
-    }
-
-    return {
-        compileButton: compileButton,
-        isButton: isButton
-    }
-
-});
-
-define('jqmng/widgets/angularButton',[
-    'jqmng/widgets/widgetProxyUtil',
-    'jqmng/widgets/jqmButton'
-], function(proxyUtil, jqmButton) {
-
-    proxyUtil.createAngularWidgetProxy('button', function(element) {
-        var isButton = jqmButton.isButton(element);
-        var name = element.attr('name');
-        return function(element, origBinder) {
-            var res = origBinder();
-            if (isButton) {
-                jqmButton.compileButton.call(this, element, name);
-            }
-            return res;
-        }
-    });
-});
-
-define('jqmng/widgets/jqmCollapsible',[
-    'jqmng/widgets/widgetProxyUtil',
-    'jqmng/widgets/disabledHandling'
-], function(proxyUtil, disabledHandling) {
-
-    function compileCollapsible(element, name) {
-        var scope = this;
-        element.collapsible();
-    }
-
-    function isCollapsible(element) {
-        return element.filter($.mobile.collapsible.prototype.options.initSelector).length > 0;
-    }
-
-    return {
-        compileCollapsible: compileCollapsible,
-        isCollapsible: isCollapsible
-    }
-});
-
-define('jqmng/widgets/angularDiv',[
-    'jqmng/widgets/widgetProxyUtil',
-    'jqmng/widgets/jqmCollapsible'
-], function(proxyUtil, jqmCollapsible) {
-    proxyUtil.createAngularWidgetProxy('div', function(element) {
-        var isCollapsible = jqmCollapsible.isCollapsible(element);
-        var name = element.attr('name');
-        return function(element, origBinder) {
-            var res = origBinder();
-            if (isCollapsible) {
-                jqmCollapsible.compileCollapsible.call(this, element, name);
-            }
-            return res;
-        };
-    });
-
-
-});
-
-define('jqmng/widgets/jqmSelectMenu',[
-    'jqmng/widgets/widgetProxyUtil',
-    'jqmng/widgets/disabledHandling',
-    'jqmng/widgets/pageCompile'
-], function(proxyUtil, disabledHandling, pageCompile) {
-    disabledHandling.selectmenu = true;
-
-    function compileSelectMenu(element, name) {
-        var scope = this;
-        // The selectmenu needs access to the page,
-        // so we can not create it until after the eval cycle!
-        pageCompile.afterCompile(function() {
-            // The selectmenu widget creates a parent tag. This needs
-            // to be deleted when the select tag is deleted from the dom.
-            // Furthermore, it creates ui-selectmenu and ui-selectmenu-screen divs, as well as new dialogs
-            var removeSlaves;
-            var newElements = proxyUtil.recordDomAdditions(".ui-selectmenu,.ui-selectmenu-screen,:jqmData(role='dialog')", function() {
-                element.selectmenu();
-                removeSlaves = element.parent();
-            });
-            removeSlaves = removeSlaves.add(newElements);
-            proxyUtil.removeSlavesWhenMasterIsRemoved(element, removeSlaves);
-
-            scope.$watch(name, function(value) {
-                element.selectmenu('refresh', true);
-            });
-            // update the value when the number of options change.
-            // needed if the default values changes.
-            var oldCount;
-            scope.$onEval(999999, function() {
-                var newCount = element[0].childNodes.length;
-                if (oldCount !== newCount) {
-                    oldCount = newCount;
-                    element.trigger('change');
-                }
-            });
-        });
-    }
-
-    function isSelectMenu(element) {
-        return element.filter($.mobile.selectmenu.prototype.options.initSelector)
-            .not(":jqmData(role='none'), :jqmData(role='nojs')").length > 0;
-    }
-
-    return {
-        compileSelectMenu: compileSelectMenu,
-        isSelectMenu: isSelectMenu
-    }
-});
-
-define('jqmng/widgets/jqmSlider',[
-    'jqmng/widgets/widgetProxyUtil',
-    'jqmng/widgets/disabledHandling',
-    'jqmng/widgets/pageCompile'
-], function(proxyUtil, disabledHandling, pageCompile) {
-    disabledHandling.slider = true;
-
-    function compileSlider(element, name) {
-        var scope = this;
-        pageCompile.afterCompile(function() {
-            // The slider widget creates an element of class ui-slider
-            // after the slider.
-            var newElements = proxyUtil.recordDomAdditions(".ui-slider", function() {
-                element.slider();
-            });
-            proxyUtil.removeSlavesWhenMasterIsRemoved(element, $(newElements));
-
-            scope.$watch(name, function(value) {
-                element.slider('refresh');
-            });
-        });
-    }
-
-    function isSlider(element) {
-        return element.filter($.mobile.slider.prototype.options.initSelector)
-            .not(":jqmData(role='none'), :jqmData(role='nojs')").length > 0;
-
-    }
-
-    return {
-        compileSlider: compileSlider,
-        isSlider: isSlider
-    }
-
-});
-
-define('jqmng/widgets/jqmCheckboxRadio',[
-    'jqmng/widgets/widgetProxyUtil',
-    'jqmng/widgets/disabledHandling',
-    'jqmng/widgets/pageCompile'
-], function(proxyUtil, disabledHandling, pageCompile) {
-    disabledHandling.checkboxradio = true;
-
-    function compileCheckboxRadio(element, name) {
-        var scope = this;
-        // The checkboxradio widget looks for a label
-        // within the page. So we need to defer the creation.
-        pageCompile.afterCompile(function() {
-            element.checkboxradio();
-            scope.$watch(name, function(value) {
-                element.checkboxradio('refresh');
-            });
-        });
-    }
-
-    function isCheckboxRadio(element) {
-        return element.filter($.mobile.checkboxradio.prototype.options.initSelector)
-            .not(":jqmData(role='none'), :jqmData(role='nojs')").length > 0;
-
-    }
-
-    return {
-        compileCheckboxRadio: compileCheckboxRadio,
-        isCheckboxRadio: isCheckboxRadio
-    }
-
-
-});
-
-define('jqmng/widgets/jqmTextInput',[
-    'jqmng/widgets/widgetProxyUtil',
-    'jqmng/widgets/disabledHandling'
-], function(proxyUtil, disabledHandling) {
-    disabledHandling.textinput = true;
-
-    function compileTextInput(element, name) {
-        var scope = this;
-        element.textinput();
-    }
-
-    function isTextInput(element) {
-        return element.filter($.mobile.textinput.prototype.options.initSelector)
-            .not(":jqmData(role='none'), :jqmData(role='nojs')").length > 0;
-    }
-
-    return {
-        compileTextInput: compileTextInput,
-        isTextInput: isTextInput
-    }
-
-
-});
-
-define('jqmng/widgets/angularInput',[
-    'jqmng/widgets/widgetProxyUtil',
-    'jqmng/widgets/jqmSelectMenu',
-    'jqmng/widgets/jqmSlider',
-    'jqmng/widgets/jqmCheckboxRadio',
-    'jqmng/widgets/jqmTextInput',
-    'jqmng/widgets/jqmButton'
-],
-    function(proxyUtil, jqmSelectMenu, jqmSlider, jqmCheckboxRadio, jqmTextInput, jqmButton) {
-        proxyUtil.createAngularWidgetProxy('input', function(element) {
-            var isTextinput = jqmTextInput.isTextInput(element);
-            var isCheckboxRadio = jqmCheckboxRadio.isCheckboxRadio(element);
-            var isSlider = jqmSlider.isSlider(element);
-            var isButton = jqmButton.isButton(element);
-
-            var name = element.attr('name');
-            var oldType = element[0].type;
-            // Need to set the type temporarily always to 'text' so that
-            // the original angular widget is used.
-            if (isTextinput) {
-                element[0].type = 'text';
-                element[0]['data-type'] = oldType;
-            }
-            return function(element, origBinder) {
-                element[0].type = oldType;
-                if (isCheckboxRadio) {
-                    // Angular only binds to the click event for radio and check boxes,
-                    // but jquery mobile fires a change event. So be sure that angular also listens to the change event.
-                    var origBind = element.bind;
-                    element.bind = function(events, callback) {
-                        if (events.indexOf('click') != -1) {
-                            events += " change";
-                        }
-                        return origBind.call(this, events, callback);
-                    };
-                }
-                var res = origBinder();
-                if (isSlider) {
-                    jqmSlider.compileSlider.call(this, element, name);
-                }
-                if (isCheckboxRadio) {
-                    jqmCheckboxRadio.compileCheckboxRadio.call(this, element, name);
-                }
-                if (isButton) {
-                    jqmButton.compileButton.call(this, element, name);
-                }
-                if (isTextinput) {
-                    jqmTextInput.compileTextInput.call(this, element, name);
-                }
-                return res;
-            };
-        });
-
-    });
-
-define('jqmng/widgets/angularSelect',[
-    'jqmng/widgets/widgetProxyUtil',
-    'jqmng/widgets/jqmSelectMenu',
-    'jqmng/widgets/jqmSlider'
-], function(proxyUtil, jqmSelectMenu, jqmSlider) {
-    proxyUtil.createAngularWidgetProxy('select', function(element) {
-        var isSelectMenu = jqmSelectMenu.isSelectMenu(element);
-        var isSlider = jqmSlider.isSlider(element);
-        var name = element.attr('name');
-        return function(element, origBinder) {
-            var res = origBinder();
-            if (isSelectMenu) {
-                jqmSelectMenu.compileSelectMenu.call(this, element, name);
-            }
-            if (isSlider) {
-                jqmSlider.compileSlider.call(this, element, name);
-            }
-            return res;
-        }
-    });
+    'jquery'
+], function($) {
+    // Button wraps the actual button into another div that is stored in the
+    // "button" property.
+    var fn = $.mobile.button.prototype;
+    var oldDestroy = fn.destroy;
+    fn.destroy = function() {
+        // Destroy the widget instance first to prevent
+        // a stack overflow.
+        oldDestroy.apply(this, arguments);
+        this.button.remove();
+    };
 
 });
 
 define('jqmng/widgets/jqmListView',[
-    'jqmng/widgets/widgetProxyUtil',
-    'jqmng/widgets/disabledHandling',
-    'jquery',
-    'jqmng/widgets/pageCompile'
-], function(proxyUtil, disabledHandling, $, pageCompile) {
-
-    function compileListView(element) {
-        var scope = this;
-        // The listview widget looks for the persistent footer,
-        // so we need to defer the creation.
-        pageCompile.afterCompile(function() {
-            // listviews may create subpages for nested lists.
-            // Be sure that they get removed from the dom when the list is removed.
-            var newElemens = proxyUtil.recordDomAdditions(":jqmData(role='page')", function() {
-                element.listview();
-            });
-            proxyUtil.removeSlavesWhenMasterIsRemoved(element, $(newElemens));
-            // refresh the listview when the number of children changes.
-            // This does not need to check for changes to the
-            // ordering of children, for the following reason:
-            // The only changes to elements is done by ng:repeat.
-            // And ng:repeat reuses the same element for the same index position,
-            // independent of the value of that index position.
-            var oldCount;
-            scope.$onEval(999999, function() {
-                var newCount = element[0].childNodes.length;
-                if (oldCount !== newCount) {
-                    oldCount = newCount;
-                    element.listview("refresh");
-                }
-            });
+    'jquery'
+], function($) {
+    // Listview may create subpages that need to be removed when the widget is destroyed.
+    var fn = $.mobile.listview.prototype;
+    var oldDestroy = fn.destroy;
+    fn.destroy = function() {
+        // Destroy the widget instance first to prevent
+        // a stack overflow.
+        // Note: If there are more than 1 listview on the page, childPages will return
+        // the child pages of all listviews.
+        var id = this.element.attr('id');
+        var childPageRegex = new RegExp($.mobile.subPageUrlKey + "=" +id+"-");
+        var childPages = this.childPages();
+        oldDestroy.apply(this, arguments);
+        for (var i=0; i<childPages.length; i++) {
+            var childPage = $(childPages[i]);
+            var dataUrl = childPage.attr('data-url');
+            if (dataUrl.match(childPageRegex)) {
+                childPage.remove();
+            }
+        }
+    };
+    var oldCreate = fn._create;
+    fn._create = function() {
+        var self = this;
+        var res = oldCreate.apply(this, arguments);
+        // refresh the list when the children change
+        this.element.bind('elementsAdded elementsRemoved', function(event) {
+            event.stopPropagation();
+            self.refresh();
         });
-    }
-
-    function isListView(element) {
-        return element.filter($.mobile.listview.prototype.options.initSelector).length > 0;
-    }
-
-    return {
-        compileListView: compileListView,
-        isListView: isListView
-    }
+    };
 });
 
-define('jqmng/widgets/angularUl',[
-    'jqmng/widgets/widgetProxyUtil',
-    'jqmng/widgets/jqmListView'
-], function(proxyUtil, jqmListView) {
-    proxyUtil.createAngularWidgetProxy('ul', function(element) {
-        var isListView = jqmListView.isListView(element);
-        return function(element, origBinder) {
-            var res = origBinder();
-            if (isListView) {
-                jqmListView.compileListView.call(this, element);
-            }
-            return res;
+define('jqmng/widgets/jqmSelectMenu',['jquery'], function($) {
+
+    // selectmenu may create:
+    // - parent element
+    var fn = $.mobile.selectmenu.prototype;
+    var oldDestroy = fn.destroy;
+    fn.destroy = function() {
+        // Destroy the widget instance first to prevent
+        // a stack overflow.
+        var parent = this.element.closest(".ui-select");
+        var menuPage = this.menuPage;
+        var screen = this.screen;
+        var listbox = this.listbox;
+        oldDestroy.apply(this, arguments);
+        parent && parent.remove();
+        menuPage && menuPage.remove();
+        screen && screen.remove();
+        listbox && listbox.remove();
+    };
+    var oldCreate = fn._create;
+    fn._create = function() {
+        var res = oldCreate.apply(this, arguments);
+        var self = this;
+
+        // Note: We cannot use the prototype here,
+        // as there is a plugin in jquery mobile that overwrites
+        // the refresh and open functions...
+        var oldRefresh = self.refresh;
+        self.refresh = function() {
+            // The refresh is not enough (for native menus): also
+            // update the internal widget data to adjust to the new number of options.
+            this.selectOptions = this.element.find( "option" );
+            return oldRefresh.apply(this, arguments);
         };
-    });
+        // Refresh the menu on open.
+        var oldOpen = self.open;
+        self.open = function() {
+            this.refresh();
+            return oldOpen.apply(this, arguments);
+        };
+    };
+});
+
+define('jqmng/widgets/jqmSlider',['jquery'], function($) {
+    // Button wraps the actual button into another div that is stored in the
+    // "slider" property.
+    var fn = $.mobile.slider.prototype;
+    var oldDestroy = fn.destroy;
+    fn.destroy = function() {
+        // Destroy the widget instance first to prevent
+        // a stack overflow.
+        oldDestroy.apply(this, arguments);
+        this.slider.remove();
+    };
+});
+
+define('jqmng/jqmngStyle',[], function() {
+    /* Special styles for jquery-mobile-angular-adapter */
+    /* Don't show the angular validation popup */
+    // TODO use the css plugin for this...
+    var styles =
+        "#ng-callout {display: none}";
+    $('head').append('<style type=\"text/css\">' + styles + '</style>');
+
 });
 
 // Wrapper module as facade for the internal modules.
@@ -1254,33 +1231,22 @@ define('jqm-angular',[
     'angular',
     'jquery',
     'jqmng/globalScope',
-    'jqmng/activePage',
+    'jqmng/navigate',
     'jqmng/waitDialog',
     'jqmng/event',
     'jqmng/fadein',
     'jqmng/if',
     'jqmng/paging',
+    'jqmng/sharedController',
     'jqmng/widgets/pageCompile',
-    'jqmng/widgets/angularButton',
-    'jqmng/widgets/angularDiv',
+    'jqmng/widgets/angularRepeat',
     'jqmng/widgets/angularInput',
     'jqmng/widgets/angularSelect',
-    'jqmng/widgets/angularUl',
-], function(angular, $, globalScope, activePage, waitDialog) {
-    // create global variables
-    $.mobile.globalScope = globalScope.globalScope;
-
-    // export waitDialog as angular Service
-    angular.service('waitdialog', function() {
-        return waitDialog;
-    });
-    angular.service('$activePage', function() {
-        return activePage.activePage;
-    });
-    return {
-        globalScope: globalScope.globalScope,
-        activePage: activePage.activePage,
-        waitDialog: waitDialog
-    }
-});
+    'jqmng/widgets/disabledHandling',
+    'jqmng/widgets/jqmButton',
+    'jqmng/widgets/jqmListView',
+    'jqmng/widgets/jqmSelectMenu',
+    'jqmng/widgets/jqmSlider',
+    'jqmng/jqmngStyle'
+]);
 })();

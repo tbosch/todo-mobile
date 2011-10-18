@@ -1,0 +1,117 @@
+body {
+    font-family: Arial, Verdana;
+    font-size: 12px;
+    color: #4E4E4E;
+    background-image: url(images/wood.jpg);
+    background-attachment: fixed;
+    background-origin: initial;
+    background-clip: initial;
+    background-color: rgb(0, 0, 0);
+    display: block;
+    background-position: 50% 0%;
+    background-repeat: no-repeat no-repeat;
+}
+
+h1 {
+    margin-top: 14px;
+    word-wrap: break-word;
+    font-size: 18px;
+    letter-spacing: 1px;
+    color: white;
+    text-shadow: 0px 1px 3px #333;
+    text-align: center;
+    margin-bottom: 13px;
+    padding-bottom: 3px;
+}
+
+input[type="text"] {
+    width: 100%;
+    background: url(images/addbar.png) repeat-x;
+    -webkit-border-radius: 6px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: white;
+    border-color: transparent;
+    margin-bottom: 10px;
+    height: 30px;
+    -webkit-appearance: none;
+}
+
+input[type="checkbox"] {
+    background-position: 0px 0px;
+    background-image: url(images/checkbox.png);
+    -webkit-appearance: none;
+    cursor: pointer;
+    vertical-align: middle;
+    height: 15px;
+    width: 15px;
+    margin-bottom: 0px;
+    margin-left: 0px;
+    margin-right: 8px;
+    margin-top: 4px;
+    display: block;
+    float: left;
+}
+
+input[type="checkbox"]:checked {
+    background-position: 0px 15px;
+}
+
+input[type="checkbox"] + label {
+    background: url(images/task.jpg) repeat-x;
+    -webkit-box-shadow: 0px 1px 3px #333;
+    -moz-box-shadow: 0px 1px 3px #333;
+    box-shadow: 0px 1px 3px #333;
+    -webkit-border-radius: 5px;
+    -moz-border-radius: 5px;
+    border-radius: 5px;
+    position: relative;
+    margin-left: 20px;
+    margin-bottom: 5px;
+    padding-top: 5px;
+    padding-right: 40px;
+    padding-bottom: 5px;
+    display: block;
+    vertical-align: top;
+}
+
+a {
+    font-weight: normal;
+    font-size: 11px;
+    cursor: pointer;
+    margin: 5px 5px 5px 0px;
+    padding: 6px 12px;
+    -moz-border-radius: 5px;
+    -webkit-border-radius: 5px;
+    border-radius: 5px;
+    background: url(images/task.jpg);
+    -webkit-box-shadow: 0px 1px 3px #333;
+    -moz-box-shadow: 0px 1px 3px #333;
+    box-shadow: 0px 1px 3px #333;
+    border: none;
+    opacity: 0.6;
+    display: block;
+    float: left;
+}
+
+a:link {
+    text-decoration: none;
+    color: #4E4E4E
+}
+
+a:visited {
+    color: #4E4E4E;
+    text-decoration: none;
+}
+
+a:active {
+    color: #4E4E4E;
+    text-decoration: none;
+}
+
+a:hover {
+    color: #4E4E4E;
+    text-decoration: none;
+    opacity: 1.0;
+}
+
