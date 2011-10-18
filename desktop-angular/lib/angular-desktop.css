@@ -1,0 +1,29 @@
+#waitDialog {
+    display: none;
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    width: 100%;
+    height: 100%;
+    text-align: center;
+    z-index: 100;
+    opacity: 0.7;
+    filter: alpha(opacity = 70);
+    background-color: #808080;
+}
+
+#waitDialogMessage {
+    display: none;
+    z-index: 1010;
+    opacity: 1;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 300px;
+    margin-top: -10px;
+    margin-left: -150px;
+    background-color: white;
+    border: 1px solid #000;
+    padding: 15px;
+    text-align: center;
+}
