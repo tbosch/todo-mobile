@@ -12,6 +12,9 @@ There are the following implementations:
 - mobile version with angular and jquery mobile
 - mobile version with angular and sencha touch
 
+There is a live version on Github Pages, see here:
+[http://tigbro.github.com/todo-mobile/](http://tigbro.github.com/todo-mobile/).
+
 
 Build process
 -------------
