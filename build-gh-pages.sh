@@ -2,7 +2,7 @@
 # contains the live copy of the demo.
 TMP=/tmp/gh-pages
 SRC=target/todo-mobile
-if $M2_HOME/bin/mvn package; then
+if mvn package; then
     mkdir -p $TMP
     rm -fr $TMP
     cp -r $SRC/ $TMP
