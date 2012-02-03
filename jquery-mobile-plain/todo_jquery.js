@@ -13,7 +13,7 @@ function addTodo() {
     var entryCount = list.find('input').length;
     list.append(entryTemplate(entryCount, inputText));
     // Create new jquery widgets
-    list.trigger('create');
+    list.parent().trigger('create');
     $('#input').val('');
 }
 
