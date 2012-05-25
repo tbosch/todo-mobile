@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html ng-app="todo">
+<html>
 <head>
     <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=0"/>
     <title>TodoMobile</title>
@@ -19,43 +19,46 @@
         }
     </style>
 </head>
-<body ng-controller="TodoController">
-<div id="main" data-role="page" ngm-pagebeforeshow="refreshTodos()" ngm-swipeleft="showSettings()">
-    <div data-role="header">
-        <h1>Todos</h1>
-        <a href="" id="saveTodos" data-role="button" ngm-click="saveTodos()">Save</a>
-        <a href="#settings" data-role="button">Settings</a>
-    </div>
-
-    <div data-role="content">
-        <div data-role="fieldcontain">
-            <form ng-submit="addTodo()" data-ajax="false">
-                <input type="text" id="inputText" ng-model="$parent.inputText" placeholder="enter your todo here" ng-model-instant>
-            </form>
+<body>
+<div ng-controller="TodoController" ng-app="todo">
+    <div id="main" data-role="page" ngm-pagebeforeshow="refreshTodos()" ngm-swipeleft="showSettings()">
+        <div data-role="header">
+            <h1>Todos</h1>
+            <a href="" id="saveTodos" data-role="button" ngm-click="saveTodos()">Save</a>
+            <a href="#settings" data-role="button">Settings</a>
         </div>
-        <fieldset data-role="controlgroup">
-            <div ng-repeat="todo in todos | paged:{pageSize:5}">
-                <input type="checkbox" ng-model="todo.done" id="todo{{$index}}"/>
-                <label for="todo{{$index}}">{{todo.name}}</label>
-            </div>
-            <div ngm-if="todos | paged:'hasMore'">
-                <a href="#" ngm-click="todos | paged:'loadMore'" data-role="button">Load more</a>
-            </div>
-        </fieldset>
-    </div>
-</div>
 
-<div id="settings" data-role="page" ngm-swiperight="back()">
-    <div data-role="header">
-        <h1>Settings</h1>
-        <a href="" id="saveSettings" data-role="button" data-rel="back">Save</a>
-    </div>
-
-    <div data-role="content">
-        <div data-role="fieldcontain">
-            <input type="text" id="storageKey" ng-model="$parent.storageKey" placeholder="enter your storage key here">
+        <div data-role="content">
+            <div data-role="fieldcontain">
+                <form ng-submit="addTodo()" data-ajax="false">
+                    <input type="text" id="inputText" ng-model="$parent.inputText" placeholder="enter your todo here" ng-model-instant>
+                </form>
+            </div>
+            <div data-role="controlgroup">
+                <fieldset ng-repeat="todo in todos | paged:{pageSize:5}">
+                    <input type="checkbox" ng-model="todo.done" id="checked">
+                    <label for="checked">{{todo.name}}</label>
+                </fieldset>
+                <div ngm-if="todos | paged:'hasMore'">
+                    <a href="#" ngm-click="todos | paged:'loadMore'" data-role="button">Load more</a>
+                </div>
+            </div>
         </div>
     </div>
+
+    <div id="settings" data-role="page" ngm-swiperight="back()">
+        <div data-role="header">
+            <h1>Settings</h1>
+            <a href="" id="saveSettings" data-role="button" data-rel="back">Save</a>
+        </div>
+
+        <div data-role="content">
+            <div data-role="fieldcontain">
+                <input type="text" id="storageKey" ng-model="$parent.storageKey" placeholder="enter your storage key here">
+            </div>
+        </div>
+    </div>
+
 </div>
 
 </body>
