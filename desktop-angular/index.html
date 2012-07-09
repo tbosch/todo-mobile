@@ -1,33 +1,33 @@
 <!DOCTYPE html>
-<html xmlns:ng="http://angularjs.org">
+<html ng-app="todo">
 <head>
     <title>TodoDesktop</title>
     <link rel="stylesheet" href="lib/angular-desktop.css">
     <link rel="stylesheet" href="lib/todo.css">
 
-    <script src="../common/lib/jquery-1.6.2.js"></script>
-    <script src="../common/lib/angular-0.9.19.js"></script>
+    <script src="../common/lib/jquery.js"></script>
+    <script src="../common/lib/angular.js"></script>
     <script src="lib/angular-desktop.js"></script>
     <script src="../common/app/todo.js"></script>
 </head>
-<body ng:controller="TodoController">
+<body ng-controller="TodoController">
 
 <div id="main" class="page">
     <div>
         <h1>Todos</h1>
-        <a href="" ng:click="saveTodos()">Save</a>
-        <a href="" ng:click="refreshTodos()">Refresh</a>
+        <a href="" ng-click="saveTodos()">Save</a>
+        <a href="" ng-click="refreshTodos()">Refresh</a>
         <a href="#settings">Settings</a>
     </div>
 
     <div>
         <div>
-            <form ng:submit="addTodo()">
-                <input type="text" id="inputText" name="inputText" placeholder="enter your todo here">
+            <form ng-submit="addTodo()">
+                <input type="text" id="inputText" ng-model="inputText" placeholder="enter your todo here">
             </form>
         </div>
-        <div ng:repeat="todo in todos">
-            <input type="checkbox" name="todo.done" id="todo{{$index}}"/>
+        <div ng-repeat="todo in todos">
+            <input type="checkbox" ng-model="todo.done" id="todo{{$index}}"/>
             <label for="todo{{$index}}">{{todo.name}}</label>
         </div>
     </div>
@@ -36,12 +36,12 @@
 <div id="settings" class="page">
     <div>
         <h1>Settings</h1>
-        <a href="#main" ng:click="refreshTodos()">Back</a>
+        <a href="#main" ng-click="refreshTodos()">Back</a>
     </div>
 
     <div>
         <div>
-            <input type="text" id="storageKey" name="storageKey" placeholder="enter your storage key here">
+            <input type="text" id="storageKey" ng-model="storageKey" placeholder="enter your storage key here">
         </div>
     </div>
 </div>
